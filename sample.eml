@@ -1,0 +1,34 @@
+Delivered-To: victim@example.com
+Received: by 10.0.0.5 with SMTP id xxxx; Thu, 07 May 2026 10:00:00 -0000
+Return-Path: <scammer@gmail.com>
+Authentication-Results: mx.example.com; spf=fail (domain does not designate permitted sender IPs); dkim=fail; dmarc=fail
+From: "PayPal Security" <scammer@gmail.com>
+Reply-To: support@paypal-secure-update.com
+Message-ID: <123456@malicious-server.xyz>
+To: victim@example.com
+Subject: Fwd: Re: Re: URGENT: Your account has been suspended!
+Date: Thu, 07 May 2026 10:00:00 -0000
+Content-Type: multipart/mixed; boundary="boundary-1234"
+
+--boundary-1234
+Content-Type: text/html; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+
+<html>
+<body>
+<p style="font-size: 0; color: white;">This text is hidden to bypass filters</p>
+<p>Dear Customer,</p>
+<p>Your account will <b>expire</b> and be <b>suspend</b>ed in <b>24 hours</b>! Please <b>act now</b>.</p>
+<p>Click here to <a href="http://www.paypaI.com/login?redirect=http://192.168.1.100/malware">verify now</a>.</p>
+<p>This is a unicode test: \u0430\u0441\u0441\u043Eu\u043Et</p>
+</body>
+</html>
+
+--boundary-1234
+Content-Type: text/plain; name="invoice_123.txt"
+Content-Disposition: attachment; filename="invoice_123.txt"
+Content-Transfer-Encoding: base64
+
+SW52b2ljZSBkZXRhaWxzOiBodHRwczovL2V2aWwtZG9tYWluLnh5ei9kb3dubG9hZA==
+
+--boundary-1234--
