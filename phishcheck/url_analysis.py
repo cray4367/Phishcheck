@@ -181,4 +181,51 @@ def analyze_urls(text_body, html_body, api_key=None, skip_vt=False):
             
         url_info_list.append({"url": url, "virustotal": vt_results_str})
 
+    # 8. WHOIS Domain Analysis (Check unique domains)
+    unique_domains = set()
+    for url in urls:
+        try:
+            domain = urlparse(url).netloc.lower().split(":")[0]
+            if not re.match(r'^\d+\.\d+\.\d+\.\d+$', domain): # Skip IPs
+                unique_domains.add(domain)
+        except Exception:
+            pass
+
+    for domain in unique_domains:
+        try:
+            import whois
+            from datetime import datetime
+            
+            # Use simple whois with a catch
+            w = whois.whois(domain)
+            
+            if w.creation_date:
+                creation_dates = w.creation_date if isinstance(w.creation_date, list) else [w.creation_date]
+                creation_date = min(d for d in creation_dates if isinstance(d, datetime))
+                age_days = (datetime.now() - creation_date).days
+                
+                if age_days < 30:
+                    penalties.append({"reason": f"WHOIS: Domain '{domain}' is extremely new ({age_days} days old). High risk of temporary phishing infrastructure.", "points": 30})
+                elif age_days < 180:
+                    penalties.append({"reason": f"WHOIS: Domain '{domain}' is relatively new ({age_days} days old).", "points": 10})
+            
+            if w.expiration_date:
+                expiration_dates = w.expiration_date if isinstance(w.expiration_date, list) else [w.expiration_date]
+                expiration_date = min(d for d in expiration_dates if isinstance(d, datetime))
+                days_to_expire = (expiration_date - datetime.now()).days
+                
+                if 0 < days_to_expire < 30:
+                     penalties.append({"reason": f"WHOIS: Domain '{domain}' expires very soon ({days_to_expire} days). Phishers often use short-lived domains.", "points": 15})
+
+            # Check for WHOIS Privacy (often used by phishers to hide identity)
+            privacy_keywords = ["privacy", "proxy", "protect", "hidden", "redacted", "guard", "perfect privacy", "domains by proxy"]
+            whois_text = str(w).lower()
+            if any(keyword in whois_text for keyword in privacy_keywords):
+                 penalties.append({"reason": f"WHOIS: Domain '{domain}' uses a privacy protection service to hide registration details.", "points": 5})
+
+        except ImportError:
+             pass # python-whois not installed
+        except Exception:
+             pass # WHOIS lookup failed or timed out
+
     return penalties, url_info_list

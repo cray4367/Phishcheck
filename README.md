@@ -1,28 +1,49 @@
-# PhishCheck 🎣
-**Advanced Email Phishing Forensic Analyzer**
+# PhishCheck: Advanced Email Phishing Forensic Analyzer
 
-PhishCheck is a powerful, local-first Python CLI tool designed to perform deep forensic analysis on `.eml` (email) files. It automatically extracts, scans, and scores emails against modern phishing tactics—including homograph attacks, tracking pixels, URL obfuscation, and embedded malicious attachments.
+## Overview
 
----
-
-## 🌟 Key Features
-
-* **Advanced Header Forensics**: Validates SPF/DKIM/DMARC records, detects Reply-To mismatches, and flags suspicious `X-Mailer` agents (e.g., automated scripts spoofing humans).
-* **URL Reputation & Unshortening**: Unrolls shortened links (`bit.ly`, `tinyurl`) to their true destination, checks for Typosquatting (brand impersonation), and queries the VirusTotal API for domain reputation.
-* **Homograph (Punycode) Detection**: Detects `xn--` domains and zero-width characters used to trick users into thinking a link is legitimate (e.g., `аррӏе.com` vs `apple.com`).
-* **Quishing (QR Code) Detection**: Extracts embedded images and scans them for hidden QR codes containing malicious URLs.
-* **HTML Evasion Detection**: Flags 1x1 tracking pixels and off-screen text rendering (`left: -9999px`) used by attackers to bypass spam filters.
-* **Urgency & Tone Analysis**: Highlights high-pressure social engineering tactics in the email body.
-* **Attachment Extraction & Scanning**: Extracts files, dumps readable strings, and scans file hashes against VirusTotal.
+PhishCheck is a robust, local-first Python command-line interface (CLI) tool designed for deep forensic analysis of `.eml` (email) files. It serves as an automated first-pass triage tool for security operations centers (SOC) and incident responders. PhishCheck parses emails to extract, analyze, and score potential indicators of compromise (IoCs) across modern phishing tactics, including homograph attacks, tracking pixels, URL obfuscation, WHOIS anomalies, and malicious attachments.
 
 ---
 
-## ⚙️ Installation & Setup
+## Capabilities and Features
 
-PhishCheck requires Python 3.8 or higher.
+### 1. Header Forensics and Authentication Analysis
+* **Authentication Validation**: Validates SPF, DKIM, and DMARC records. Failures are heavily penalized as they are primary indicators of spoofing.
+* **Domain Mismatch Detection**: Flags inconsistencies between the `From`, `Reply-To`, and `Message-ID` header domains.
+* **Mailer Agent Analysis**: Identifies suspicious `X-Mailer` and `User-Agent` strings (e.g., detecting automated scripts like `PHPMailer` or `Python-urllib` spoofing corporate entities).
+* **Routing Path Anomalies**: Scans the `Received` chain for RFC-1918 internal IP addresses indicating forged routing hops.
 
-### 1. Clone the repository and create a Virtual Environment
-It's highly recommended to run this tool inside a Python Virtual Environment to avoid dependency conflicts.
+### 2. Advanced URL Reputation and Intelligence
+* **URL Unshortening**: Automatically resolves shortened links (e.g., `bit.ly`, `tinyurl.com`) to their true destination prior to analysis.
+* **Homograph and Punycode Detection**: Identifies `xn--` domains and zero-width characters utilized to trick users via visual spoofing.
+* **Typosquatting Detection**: Uses Levenshtein distance algorithms to calculate proximity to known high-value targets (e.g., financial institutions, tech giants).
+* **VirusTotal API Integration**: Queries the VirusTotal API to determine the external reputation of extracted URLs.
+
+### 3. WHOIS Domain Intelligence
+* **Domain Age**: Performs WHOIS lookups on extracted domains. Domains registered within the last 30 days are flagged as high risk (temporary phishing infrastructure).
+* **Domain Expiration**: Flags domains expiring within 30 days, a common trait of short-lived malicious campaigns.
+* **WHOIS Privacy Checks**: Detects the use of WHOIS privacy protection proxies, which attackers frequently use to obscure their identities.
+
+### 4. Body Content and Evasion Detection
+* **HTML Evasion Detection**: Flags CSS attributes designed to bypass textual spam filters, including off-screen rendering (`left: -9999px`), zero-font sizes, and 1x1 tracking pixels.
+* **Urgency and Tone Analysis**: Highlights high-pressure social engineering keywords within the email body.
+* **Unicode Inconsistencies**: Detects the mixing of disparate character scripts (e.g., Cyrillic characters mixed within Latin text) used for homoglyph evasion.
+
+### 5. Attachment Extraction and Quishing Detection
+* **QR Code (Quishing) Scanning**: Extracts embedded images and utilizes the `zbar` library to scan for hidden QR codes containing malicious URLs.
+* **File Hashing and Reputation**: Hashes all extracted attachments (SHA-256) and queries the VirusTotal API for known malware signatures.
+* **Embedded Strings Analysis**: Dumps readable ASCII strings from binary attachments to extract hidden URLs.
+
+---
+
+## Installation and Setup Requirements
+
+PhishCheck requires **Python 3.8 or higher**.
+
+### 1. Repository Configuration
+It is recommended to run this tool inside a Python Virtual Environment to maintain isolated dependencies.
+
 ```bash
 git clone https://github.com/cray4367/Phishcheck.git
 cd Phishcheck
@@ -32,79 +53,80 @@ python3 -m venv venv
 source venv/bin/activate  # On Windows use: venv\Scripts\activate
 ```
 
-### 2. Install System Dependencies (For QR Code Scanning)
-To enable "Quishing" (QR code) detection, you must have the `zbar` shared library installed on your system:
+### 2. System Level Dependencies
+To enable the QR code scanning module, the `zbar` shared library must be installed on your host operating system:
+
 * **Ubuntu/Debian**: `sudo apt-get install libzbar0`
 * **macOS**: `brew install zbar`
 * **Arch Linux**: `sudo pacman -S zbar`
 
-### 3. Install Python Requirements
+### 3. Python Package Installation
+Install the required Python modules via `pip`:
 ```bash
 pip install -r requirements.txt
 ```
 
 ---
 
-## 🔑 Setting up the VirusTotal API Key
+## Configuration: VirusTotal API Integration
 
-PhishCheck uses VirusTotal to score the reputation of extracted URLs and file attachments. **You need a free VirusTotal API key to use this feature.**
+PhishCheck leverages the VirusTotal API for external reputation scoring. An API key is required to utilize this functionality.
 
-### How to get a free API Key:
-1. Go to [VirusTotal.com](https://www.virustotal.com/) and click **Sign Up** in the top right corner.
-2. Create a free account and verify your email address.
-3. Once logged in, click on your profile icon in the top right and select **API key**.
-4. Copy the long alphanumeric string displayed on that page.
+### Provisioning the API Key:
+1. Navigate to [VirusTotal](https://www.virustotal.com/) and register for a free account.
+2. Access your profile settings and navigate to the **API key** section.
+3. Copy the provided alphanumeric API key.
 
-### Adding the key to PhishCheck:
-1. In the root directory of the PhishCheck project, create a new file named exactly **`.env`** (or rename the provided `.env.example`).
-2. Open the `.env` file and paste your API key like this:
+### Implementing the Key:
+1. In the root directory of the PhishCheck project, create a new file named exactly **`.env`** (you may also rename the provided `.env.example`).
+2. Populate the `.env` file with the following variable:
 ```ini
 VIRUSTOTAL_API_KEY=your_copied_api_key_here
 ```
-*Note: The `.env` file is ignored by Git, so your API key will remain private.*
+*Note: The `.env` file is explicitly ignored by version control to ensure operational security.*
 
 ---
 
-## 🚀 Usage Guide
+## Usage Documentation
 
-Once installed and configured, you run the analyzer by passing an `.eml` file to `main.py`.
+Execute the analyzer by passing a target `.eml` file to the main script.
 
-### Basic Analysis
-Run a standard analysis. The tool will print an ANSI-colored forensic report directly to your terminal.
+### Standard Execution
+Performs a full forensic analysis and outputs an ANSI-colored report to stdout.
 ```bash
 python main.py --file path/to/suspicious_email.eml
 ```
 
 ### Verbose Mode
-Prints exactly which URLs and Attachments were extracted and scanned.
+Appends detailed extraction data to the report, including the specific URLs and Attachments processed.
 ```bash
 python main.py --file path/to/suspicious_email.eml --verbose
 ```
 
-### Skip VirusTotal
-If you don't have an API key yet, or want to run an offline/air-gapped scan without reaching out to external servers, use the `--no-vt` flag.
+### Offline / Air-Gapped Mode
+Bypasses the VirusTotal API integration. Useful for rapid execution or when operating in restrictive network environments.
 ```bash
 python main.py --file path/to/suspicious_email.eml --no-vt
 ```
 
-### Export to Text File
-Saves the clean (color-code stripped) report to a text file for sharing or archiving.
-```bash
-python main.py --file path/to/suspicious_email.eml --output report.txt
-```
-
-### JSON Output (For Automation)
-If you want to pipe the results into another tool or SIEM, use the JSON flag.
+### JSON Data Export
+Outputs the raw forensic data and scoring matrices as a structured JSON object, suitable for ingestion into SIEM platforms or automation pipelines.
 ```bash
 python main.py --file path/to/suspicious_email.eml --json
 ```
 
+### Plain Text Export
+Strips ANSI color codes and writes the assessment to a specified text file for archival.
+```bash
+python main.py --file path/to/suspicious_email.eml --output assessment_report.txt
+```
+
 ---
 
-## 📊 Understanding the Score
+## Threat Scoring Matrix
 
-PhishCheck evaluates the email across multiple vectors and assigns penalty points. The final score ranges from 0 to 100:
+PhishCheck aggregates penalties across all analysis modules to determine a final confidence score, capped at 100 points.
 
-* 🟢 **SAFE (0 - 39)**: No major red flags detected. 
-* 🟡 **SUSPICIOUS (40 - 69)**: Multiple minor anomalies or a single major red flag (like a Typosquatted URL). Treat with caution.
-* 🔴 **MALICIOUS (70 - 100)**: Definite phishing indicators found, such as failed DMARC paired with urgency, or a VirusTotal-flagged attachment. Do not interact with the email contents.
+* **SAFE (0 - 39)**: Standard communication. No significant indicators of compromise detected.
+* **SUSPICIOUS (40 - 69)**: Multiple minor anomalies or a single major red flag (e.g., Typosquatted URL, WHOIS age < 30 days) detected. Requires manual analyst review.
+* **MALICIOUS (70 - 100)**: Critical threat indicators identified (e.g., failed DMARC paired with urgency, malicious QR code, VirusTotal-flagged payload). High confidence of phishing attempt.
