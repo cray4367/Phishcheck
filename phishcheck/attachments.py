@@ -56,7 +56,33 @@ def extract_and_scan_attachments(msg, api_key=None, skip_vt=False):
             except Exception:
                 pass
                 
-        if embedded_urls:
+        # QR Code (Quishing) Scan for images
+        qr_urls = []
+        content_type = str(part.get_content_type()).lower()
+        if "image" in content_type:
+            try:
+                from PIL import Image
+                from pyzbar.pyzbar import decode
+                import io
+                
+                img = Image.open(io.BytesIO(data))
+                decoded_objects = decode(img)
+                for obj in decoded_objects:
+                    qr_data = obj.data.decode('utf-8')
+                    if re.match(r'https?://', qr_data):
+                        qr_urls.append(qr_data)
+                        embedded_urls.append(qr_data) # Add to general embedded for logging
+                        penalties.append({
+                            "reason": f"Quishing Alert! QR Code found in '{filename}' pointing to URL: {qr_data}",
+                            "points": 40
+                        })
+            except ImportError:
+                # If Pillow or pyzbar aren't installed, silently skip QR scanning
+                pass
+            except Exception:
+                pass
+                
+        if embedded_urls and not qr_urls: # If it was a QR, we already penalized it heavily above
             penalties.append({
                 "reason": f"Attachment '{filename}' contains embedded URLs", 
                 "points": 15

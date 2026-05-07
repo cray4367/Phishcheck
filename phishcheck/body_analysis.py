@@ -40,6 +40,22 @@ def analyze_body(text_body, html_body):
                 "points": 15
             })
             
+        # Look for off-screen text (e.g. left: -9999px)
+        offscreen_styles = re.findall(r'(?i)(left\s*:\s*-\d{3,}px|top\s*:\s*-\d{3,}px)', html_body)
+        if offscreen_styles:
+            penalties.append({
+                "reason": "HTML Off-screen Text detected (CSS evasion techniques)",
+                "points": 20
+            })
+            
+        # Look for 1x1 tracking pixels
+        tracking_pixels = re.findall(r'(?i)<img[^>]+width\s*=\s*["\']?1["\']?[^>]+height\s*=\s*["\']?1["\']?', html_body)
+        if tracking_pixels:
+            penalties.append({
+                "reason": "1x1 Tracking pixel detected (surveillance/reconnaissance)",
+                "points": 10
+            })
+            
     # 3. Unicode/UTF Inconsistencies (Mixed Scripts)
     # Check for Cyrillic or Greek characters mixed in primarily Latin text
     cyrillic_or_greek_regex = re.compile(r'[\u0400-\u04FF\u0370-\u03FF]')

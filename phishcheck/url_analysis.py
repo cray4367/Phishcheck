@@ -108,6 +108,24 @@ def analyze_urls(text_body, html_body, api_key=None, skip_vt=False):
             # Remove port if present for domain checks
             domain = netloc.split(":")[0]
             
+            # 0. URL Unshortening (Synchronous HEAD request)
+            shortener_domains = ["bit.ly", "tinyurl.com", "t.co", "is.gd", "goo.gl", "ow.ly", "buff.ly"]
+            if domain in shortener_domains:
+                try:
+                    req = urllib.request.Request(url, method="HEAD", headers={'User-Agent': 'Mozilla/5.0'})
+                    with urllib.request.urlopen(req, timeout=3) as response:
+                        actual_url = response.geturl()
+                        if actual_url != url:
+                            penalties.append({"reason": f"URL Shortener resolved to hidden destination: {actual_url}", "points": 10})
+                            # Update variables to analyze the resolved URL
+                            url = actual_url
+                            parsed = urlparse(url)
+                            netloc = parsed.netloc.lower()
+                            path = parsed.path
+                            domain = netloc.split(":")[0]
+                except Exception:
+                    pass
+            
             # 1. IP-only Host
             if re.match(r'^\d+\.\d+\.\d+\.\d+$', domain):
                 penalties.append({"reason": f"IP-based URL detected ({url})", "points": 30})
@@ -126,14 +144,17 @@ def analyze_urls(text_body, html_body, api_key=None, skip_vt=False):
             if len(path) > 100:
                  penalties.append({"reason": f"Unusually long URL path (>100 chars) in ({url[:50]}...)", "points": 10})
                  
-            # 5. Typosquatting Check
-            domain_parts = domain.split(".")
-            for part in domain_parts:
-                for brand in BRAND_LIST:
-                    if part != brand: # Not an exact match
-                        dist = get_edit_distance(part, brand)
-                        if dist == 1 or (dist == 2 and len(brand) > 5):
-                            penalties.append({"reason": f"Possible Typosquatting: '{part}' is similar to brand '{brand}' in URL ({url})", "points": 20})
+            # 5. Typosquatting Check & Punycode
+            if domain.startswith("xn--"):
+                penalties.append({"reason": f"Punycode (IDN homograph) domain detected in URL ({url})", "points": 35})
+            else:
+                domain_parts = domain.split(".")
+                for part in domain_parts:
+                    for brand in BRAND_LIST:
+                        if part != brand: # Not an exact match
+                            dist = get_edit_distance(part, brand)
+                            if dist == 1 or (dist == 2 and len(brand) > 5):
+                                penalties.append({"reason": f"Possible Typosquatting: '{part}' is similar to brand '{brand}' in URL ({url})", "points": 20})
                             
             # 6. Homograph Attacks (Zero-width characters)
             if re.search(r'[\u200B-\u200D\uFEFF]', url):

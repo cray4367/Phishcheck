@@ -52,8 +52,19 @@ def analyze_headers(msg):
         corporate_keywords = ["support", "admin", "billing", "service", "paypal", "bank", "apple", "microsoft", "amazon", "security", "update"]
         if any(keyword in from_name for keyword in corporate_keywords):
             penalties.append({"reason": f"Corporate/Bank display name used with freemail address ({from_domain})", "points": 20})
+            
+    # 5. Punycode / IDN Homograph Attack in Headers
+    if (from_domain and from_domain.startswith("xn--")) or (reply_to_domain and reply_to_domain.startswith("xn--")):
+        penalties.append({"reason": "Punycode (IDN homograph) domain detected in Sender headers", "points": 35})
 
-    # 5. Received Chain IP Hops (RFC-1918 internal IPs)
+    # 6. Suspicious Mailer / User-Agent Analysis
+    mailer = str(msg.get("X-Mailer", "")).lower() + str(msg.get("User-Agent", "")).lower()
+    if mailer:
+        suspicious_mailers = ["phpmailer", "python-urllib", "curl", "wget", "indy", "nodemailer"]
+        if any(sm in mailer for sm in suspicious_mailers):
+            penalties.append({"reason": f"Suspicious automated X-Mailer or User-Agent found: {mailer[:30]}", "points": 15})
+
+    # 7. Received Chain IP Hops (RFC-1918 internal IPs)
     received_headers = msg.get_all("Received", [])
     internal_ip_regex = re.compile(r'\[(10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+|192\.168\.\d+\.\d+)\]')
     
@@ -65,14 +76,14 @@ def analyze_headers(msg):
     if internal_hop_count > 0:
         penalties.append({"reason": f"Found {internal_hop_count} internal (RFC-1918) IP(s) in Received headers", "points": 5})
 
-    # 6. Subject Anomalies
+    # 8. Subject Anomalies
     subject = msg.get("Subject", "")
     if subject:
         re_fwd_count = len(re.findall(r'(?i)(re:|fwd:)', str(subject)))
         if re_fwd_count > 1:
             penalties.append({"reason": f"Subject anomaly: Multiple Re:/Fwd: to create false trust", "points": 5})
 
-    # 7. Encryption/PGP Check
+    # 9. Encryption/PGP Check
     content_type = msg.get("Content-Type", "")
     pgp_header = msg.get("X-PGP-Universal", "")
     if "application/pgp" in content_type or pgp_header:
